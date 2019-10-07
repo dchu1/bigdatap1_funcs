@@ -1,11 +1,15 @@
 const Twit = require('twit');
+const TwitterDataObj = require('../SharedFunctions/TwitterDataObj');
 const MIN_TWEET_COUNT = 1;
 const MIN_FOLLOWER_COUNT = 1;
 const MAX_TWITTER_CONNECTIONS = 5;
 const MESSAGES_PER_REQUEST = 200;
 
+
 // For debugging purposes we will write what we get back from Twitter to a file
 //const fs = require('fs'); 
+
+//TwitterID of Donald Trump: 25073877
 
 const T = new Twit({
     consumer_key:         process.env["TWITTER_CONSUMER_KEY"],
@@ -21,14 +25,22 @@ const T = new Twit({
 module.exports = async function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
-    if (req.query.uid || (req.body && req.body.uid)) {
-        if(req.query.minMessages || (req.body && req.body.minMessages)) {
-            MIN_TWEET_COUNT = req.query.minMessages;
-        }
-        if(req.query.minFollowers || (req.body && req.body.minFollowers)) {
-            MIN_FOLLOWER_COUNT = minFollowers;
-        }
+    // if (req.query.uid || (req.body && req.body.uid)) {
+    //     if(req.query.minMessages || (req.body && req.body.minMessages)) {
+    //         MIN_TWEET_COUNT = req.query.minMessages;
+    //     }
+    //     if(req.query.minFollowers || (req.body && req.body.minFollowers)) {
+    //         MIN_FOLLOWER_COUNT = minFollowers;
+    //     }
+    let uid = context.bindingData.uid;
 
+    if (uid) {
+        if(req.query.min_messages) {
+            MIN_TWEET_COUNT = req.query.min_messages;
+        }
+        if(req.query.min_followers) {
+            MIN_FOLLOWER_COUNT = req.query.min_followers;
+        }
         // TEST CODE
         // try {
         //     //const tweets = await getTweets(req.query.uid)
@@ -45,16 +57,16 @@ module.exports = async function (context, req) {
         // }
 
         try {
-            //const tweets = await getTweets(req.query.uid)
             context.res = {
                 // status: 200, /* Defaults to 200 */
-                body: JSON.stringify(await getLeaderData(req.query.uid))
+                body: JSON.stringify(await getLeaderData(uid))
+                //body: JSON.stringify(await getLeaderData(req.query.uid))
             };
         } catch (err) {
             console.log(err)
             context.res = {
                 status: 500,
-                body: err
+                body: err.message
             }
         }
 
@@ -97,7 +109,7 @@ async function getLeaderData(uid) {
         let invalid_results = []
         while(valid_results.length < MIN_FOLLOWER_COUNT) {
             console.log('sending request for followers/ids')
-            const followers = await T.get('followers/ids', { user_id: uid, cursor: next_cursor, count: 10})
+            const followers = await T.get('followers/ids', { user_id: uid, cursor: next_cursor, count: 15})
             // if there are no ids break out of the loop
             if(followers.data.ids.length == 0) {
                 break
@@ -124,7 +136,8 @@ async function getLeaderData(uid) {
             valid_results = valid_results.filter(result => (result.tweets.length >= MIN_TWEET_COUNT))
         }
         console.log('Returning from GetLeaderData. Valid Results: ' + valid_results.length)
-        return {'leader_id_str': uid, 'followers': valid_results}
+        return new TwitterDataObj.LeaderObj(uid, valid_results)
+        //return {'leader_id_str': uid, 'followers': valid_results}
     } catch(err) {
         console.log(err)
         throw err
@@ -138,7 +151,8 @@ async function getTweets(uid) {
         
         // We are only insterested in the tweetId and text, so we will simply extract those two things into a new array
         let mappedTimeline = timeline.data.map(item => {
-            return {'tweet_id_str': item.id_str, 'text': item.text}
+            return new TwitterDataObj.TweetObj(item.id_str, item.text)
+            //return {'tweet_id_str': item.id_str, 'text': item.text}
         })
 
         console.log('Messages Found: ' + mappedTimeline.length)
@@ -156,14 +170,16 @@ async function getTweets(uid) {
                 break
             }
             timeline = timeline.data.map(item => {
-                return {'tweet_id_str': item.id_str, 'text': item.text}
+                return new TwitterDataObj.TweetObj(item.id_str, item.text)
+                //return {'tweet_id_str': item.id_str, 'text': item.text}
             })
             //let nextTimeline = await getMoreTweets(uid, mappedTimeline.length, )
             mappedTimeline = mappedTimeline.concat(timeline)
             prev_earliest_id = earliest_id
         }
         console.log('Returning from getTweets. Found messages: ' + mappedTimeline.length)
-        return {'follower_id_str': uid, 'tweets': mappedTimeline}  
+        return new TwitterDataObj.FollowerObj(uid, mappedTimeline)
+        //return {'follower_id_str': uid, 'tweets': mappedTimeline}  
     } catch (err) {
         console.log(err)
         throw err
