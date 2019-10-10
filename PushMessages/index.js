@@ -22,6 +22,7 @@ module.exports = async function (context, req) {
     let dataObj = {}
     if ((req.body)) {
         try {
+            // somehow the body is parsed into the correct object so i don't need to do anything
             // Parse the JSON and assign it to our TwitterDataObject object (this is basically to validate)
             //data = JSON.parse(req.body)
             //dataObj = Object.assign(new LeaderObj, req.body)

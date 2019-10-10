@@ -10,8 +10,9 @@ const config = {
     }
 }
 
-var _pool
-var initialized
+const _pool
+const initialized
+console.log('Creating DBService')
 
 function initConnPool() {
     return new Promise(function(resolve, reject) {
@@ -19,12 +20,14 @@ function initConnPool() {
             console.warn("Trying to init DB again!");
             resolve();
         }
-        _pool = new sql.ConnectionPool(config).connect().then(o => {
-            o.on('error', err => {
-                console.log(err)
-                // ... error handler
+        _pool = new sql.ConnectionPool(config).connect()
+            .then(o => {
+                o.on('error', err => {
+                    console.log(err)
+                    // ... error handler
+                })
             })
-        });
+            .then(() => initialized = true)
     })
 }
 
