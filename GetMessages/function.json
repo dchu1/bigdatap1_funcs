@@ -8,7 +8,7 @@
         "methods": [
           "get"
         ],
-        "route": "messages/{uid}"
+        "route": "user/{uid}/messages"
       },
       {
         "type": "http",

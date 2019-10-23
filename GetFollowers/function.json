@@ -8,7 +8,7 @@
         "methods": [
           "get"
         ],
-        "route": "followers/{uid}"
+        "route": "user/{uid}/followers"
       },
       {
         "type": "http",

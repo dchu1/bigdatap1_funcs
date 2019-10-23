@@ -4,31 +4,29 @@ const config = {
     password: process.env['MSSQL_PASSWORD'],
     server: process.env['MSSQL_HOST'], // You can use 'localhost\\instance' to connect to named instance
     database: process.env['MSSQL_DB'],
+    parseJSON: true, // Not sure if this will break things...Useful for getting data back in json form so I don't need to format it
     pool: {max: 4}, // Free tier Azure MSSQL DB can only have 4 connections
     options: {
         encrypt: true // Use this if you're on Windows Azure
     }
 }
 
-const _pool
-const initialized
-console.log('Creating DBService')
+let _pool
+let initialized
 
-function initConnPool() {
-    return new Promise(function(resolve, reject) {
-        if(_pool) {
-            console.warn("Trying to init DB again!");
-            resolve();
-        }
-        _pool = new sql.ConnectionPool(config).connect()
-            .then(o => {
-                o.on('error', err => {
-                    console.log(err)
-                    // ... error handler
-                })
+async function initConnPool() {
+    if(_pool) {
+        console.warn("Trying to init DB again!");
+        return
+    }
+    console.log('Initializing DBService Connection Pool')
+    _pool = await new sql.ConnectionPool(config).connect()
+    _pool.on('error', err => {
+                console.log(err)
+                // ... error handler
             })
-            .then(() => initialized = true)
-    })
+    initialized = true
+    console.log("DBService Connection Pool Initialized")
 }
 
 async function getConnection() {

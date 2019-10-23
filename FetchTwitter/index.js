@@ -1,7 +1,7 @@
 const Twit = require('twit');
 const TwitterDataObj = require('../SharedFunctions/TwitterDataObj');
-const MIN_TWEET_COUNT = 1;
-const MIN_FOLLOWER_COUNT = 1;
+const MIN_TWEET_COUNT = 1000;
+const MIN_FOLLOWER_COUNT = 200;
 const MAX_TWITTER_CONNECTIONS = 5;
 const MESSAGES_PER_REQUEST = 200;
 
@@ -25,14 +25,7 @@ const T = new Twit({
 module.exports = async function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
-    // if (req.query.uid || (req.body && req.body.uid)) {
-    //     if(req.query.minMessages || (req.body && req.body.minMessages)) {
-    //         MIN_TWEET_COUNT = req.query.minMessages;
-    //     }
-    //     if(req.query.minFollowers || (req.body && req.body.minFollowers)) {
-    //         MIN_FOLLOWER_COUNT = minFollowers;
-    //     }
-    let uid = context.bindingData.uid;
+    const uid = context.bindingData.uid;
 
     if (uid) {
         if(req.query.min_messages) {
@@ -41,26 +34,11 @@ module.exports = async function (context, req) {
         if(req.query.min_followers) {
             MIN_FOLLOWER_COUNT = req.query.min_followers;
         }
-        // TEST CODE
-        // try {
-        //     //const tweets = await getTweets(req.query.uid)
-        //     context.res = {
-        //         // status: 200, /* Defaults to 200 */
-        //         body: JSON.stringify(await getTweets(req.query.uid))
-        //     };
-        // } catch (err) {
-        //     console.log(err)
-        //     context.res = {
-        //         status: 500,
-        //         body: err
-        //     }
-        // }
 
         try {
             context.res = {
                 // status: 200, /* Defaults to 200 */
                 body: JSON.stringify(await getLeaderData(uid))
-                //body: JSON.stringify(await getLeaderData(req.query.uid))
             };
         } catch (err) {
             console.log(err)
@@ -69,29 +47,6 @@ module.exports = async function (context, req) {
                 body: err.message
             }
         }
-
-        // END TEST CODE
-
-        // let userObjectArray = {
-        //     leader_id: uid,
-        //     followers: []
-        // }
-
-        // try{
-        //     const data = await getData(req.query.uid)
-        //     userObjectArray.followers.push(item)
-        //     console.log(JSON.stringify(userObjectArray))
-        //     context.res = {
-        //     // status: 200, /* Defaults to 200 */
-        //     body: "Request sent"
-        //     };
-        // } catch (err) {
-        //     context.res = {
-        //         // status: 200, /* Defaults to 200 */
-        //         status: 400,
-        //         body: err
-        //     }
-        // }
     } else {
         context.res = {
             status: 400,
@@ -102,14 +57,13 @@ module.exports = async function (context, req) {
 
 async function getLeaderData(uid) {
     try {
-        let valid_count = 0
         let prev_cursor = -1
         let next_cursor = -1
         let valid_results = []
         let invalid_results = []
         while(valid_results.length < MIN_FOLLOWER_COUNT) {
             console.log('sending request for followers/ids')
-            const followers = await T.get('followers/ids', { user_id: uid, cursor: next_cursor, count: 15})
+            const followers = await T.get('followers/ids', { user_id: uid, cursor: next_cursor, count: MIN_FOLLOWER_COUNT})
             // if there are no ids break out of the loop
             if(followers.data.ids.length == 0) {
                 break
@@ -119,14 +73,13 @@ async function getLeaderData(uid) {
             prev_cursor = followers.data.previous_cursor_str
             let getTweetsPromises = [];
             followers.data.ids.forEach(id => {
-                // each promise will have a catch statement to handle errors
+                // each promise will have a catch statement to handle errors so the Promise.all does not error out
                 getTweetsPromises.push(() => getTweets(id).catch(e => e))
             })
 
+            // Execute our promises
             console.log('Executing Promise.all')
             const results = await Promise.all(getTweetsPromises.map(task => task()))
-            // We add a catch method to each promise
-            // const results = await Promise.all(getTweetsPromises.map(p => p.catch(e => e)));
 
             // filter the results and only get those that did not error out
             valid_results = results.filter(result => !(result instanceof Error));
@@ -137,7 +90,6 @@ async function getLeaderData(uid) {
         }
         console.log('Returning from GetLeaderData. Valid Results: ' + valid_results.length)
         return new TwitterDataObj.LeaderObj(uid, valid_results)
-        //return {'leader_id_str': uid, 'followers': valid_results}
     } catch(err) {
         console.log(err)
         throw err
@@ -152,7 +104,6 @@ async function getTweets(uid) {
         // We are only insterested in the tweetId and text, so we will simply extract those two things into a new array
         let mappedTimeline = timeline.data.map(item => {
             return new TwitterDataObj.TweetObj(item.id_str, item.text)
-            //return {'tweet_id_str': item.id_str, 'text': item.text}
         })
 
         console.log('Messages Found: ' + mappedTimeline.length)
@@ -171,21 +122,19 @@ async function getTweets(uid) {
             }
             timeline = timeline.data.map(item => {
                 return new TwitterDataObj.TweetObj(item.id_str, item.text)
-                //return {'tweet_id_str': item.id_str, 'text': item.text}
             })
-            //let nextTimeline = await getMoreTweets(uid, mappedTimeline.length, )
             mappedTimeline = mappedTimeline.concat(timeline)
             prev_earliest_id = earliest_id
         }
         console.log('Returning from getTweets. Found messages: ' + mappedTimeline.length)
-        return new TwitterDataObj.FollowerObj(uid, mappedTimeline)
-        //return {'follower_id_str': uid, 'tweets': mappedTimeline}  
+        return new TwitterDataObj.FollowerObj(uid, mappedTimeline) 
     } catch (err) {
         console.log(err)
         throw err
     }
 }
 
+// Function to find the minimum of a range of BigInts. We cannot use the built in Math.min function because it cannot handle BigInts
 function minBigInt() {
     var len = arguments.length, min = Infinity;
     while (len--) {
@@ -195,12 +144,3 @@ function minBigInt() {
     }
     return min;
   };
-
-// fs.writeFile("output.json", jsonContent, 'utf8', function (err) { 
-//     if (err) { 
-//         console.log("An error occured while writing JSON Object to File."); 
-//         return console.log(err); 
-//     } 
-
-//     console.log("JSON file has been saved."); 
-// }); 
