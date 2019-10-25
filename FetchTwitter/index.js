@@ -2,14 +2,8 @@ const Twit = require('twit');
 const TwitterDataObj = require('../SharedFunctions/TwitterDataObj');
 const MIN_TWEET_COUNT = 1000;
 const MIN_FOLLOWER_COUNT = 200;
-const MAX_TWITTER_CONNECTIONS = 5;
+const MAX_CONCURRENT_SEARCHES = 5;
 const MESSAGES_PER_REQUEST = 200;
-
-
-// For debugging purposes we will write what we get back from Twitter to a file
-//const fs = require('fs'); 
-
-//TwitterID of Donald Trump: 25073877
 
 const T = new Twit({
     consumer_key:         process.env["TWITTER_CONSUMER_KEY"],
@@ -24,21 +18,11 @@ const T = new Twit({
 
 module.exports = async function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
-
-    const uid = context.bindingData.uid;
-
-    if (uid) {
-        if(req.query.min_messages) {
-            MIN_TWEET_COUNT = req.query.min_messages;
-        }
-        if(req.query.min_followers) {
-            MIN_FOLLOWER_COUNT = req.query.min_followers;
-        }
-
+    if (context.bindingData.uid) {
         try {
             context.res = {
                 // status: 200, /* Defaults to 200 */
-                body: JSON.stringify(await getLeaderData(uid))
+                body: JSON.stringify(await getLeaderData(context.bindingData.uid,req.query.min_followers,req.query.min_messages))
             };
         } catch (err) {
             console.log(err)
@@ -55,15 +39,20 @@ module.exports = async function (context, req) {
     }
 };
 
-async function getLeaderData(uid) {
+async function getLeaderData(uid, min_followers, min_messages) {
     try {
         let prev_cursor = -1
         let next_cursor = -1
         let valid_results = []
         let invalid_results = []
-        while(valid_results.length < MIN_FOLLOWER_COUNT) {
+        if (min_followers === undefined)
+            min_followers = MIN_FOLLOWER_COUNT
+        if (min_messages === undefined)
+            min_messages = MIN_TWEET_COUNT
+        while(valid_results.length < min_followers ) {
+            let rateLimitedBool = false
             console.log('sending request for followers/ids')
-            const followers = await T.get('followers/ids', { user_id: uid, cursor: next_cursor, count: MIN_FOLLOWER_COUNT})
+            const followers = await T.get('followers/ids', { user_id: uid, cursor: next_cursor, count: 5000, stringify_ids: true})
             // if there are no ids break out of the loop
             if(followers.data.ids.length == 0) {
                 break
@@ -71,22 +60,23 @@ async function getLeaderData(uid) {
 
             next_cursor = followers.data.next_cursor_str
             prev_cursor = followers.data.previous_cursor_str
-            let getTweetsPromises = [];
-            followers.data.ids.forEach(id => {
-                // each promise will have a catch statement to handle errors so the Promise.all does not error out
-                getTweetsPromises.push(() => getTweets(id).catch(e => e))
-            })
 
-            // Execute our promises
-            console.log('Executing Promise.all')
-            const results = await Promise.all(getTweetsPromises.map(task => task()))
-
-            // filter the results and only get those that did not error out
-            valid_results = results.filter(result => !(result instanceof Error));
-            invalid_results = results.filter(result => (result instanceof Error));
-
-            // filter out the results that do not have more than the minimum number of messages
-            valid_results = valid_results.filter(result => (result.tweets.length >= MIN_TWEET_COUNT))
+            // we do this inside a loop so we don't send 5000 requests at once!
+            while(followers.data.ids.length > 0 && !rateLimitedBool && valid_results.length < min_followers) {
+                let getTweetsPromises = [];
+                for (i = 0; i < Math.min(followers.data.ids.length, MAX_CONCURRENT_SEARCHES); i++) {
+                    getTweetsPromises.push(() => getTweets(followers.data.ids.pop(), min_messages).catch(e => e))
+                }
+                console.log("Sending " + MAX_CONCURRENT_SEARCHES + " requests for tweets")
+                const results = await Promise.all(getTweetsPromises.map(task => task()))
+                valid_results = valid_results.concat(results.filter(result => !(result instanceof Error) && result.tweets.length >= min_messages))
+                invalid_results = invalid_results.concat(results.filter(result => (result instanceof Error)))
+                rateLimitedBool = invalid_results.some(e => e.statusCode == 429)
+            }
+            
+            // break out of the loop if we are rate limited
+            if (rateLimitedBool)
+                break
         }
         console.log('Returning from GetLeaderData. Valid Results: ' + valid_results.length)
         return new TwitterDataObj.LeaderObj(uid, valid_results)
@@ -96,9 +86,9 @@ async function getLeaderData(uid) {
     }
 }
 
-async function getTweets(uid) {
+async function getTweets(uid, min_messages) {
     try {
-        console.log('sending request for statuses/user_timeline')
+        console.log('sending request for statuses/user_timeline for uid: ' + uid)
         let timeline = await T.get('statuses/user_timeline', {user_id: uid, trim_user: '1', count: MESSAGES_PER_REQUEST, include_rts: 'false', excludes_replies: 'true'})
         
         // We are only insterested in the tweetId and text, so we will simply extract those two things into a new array
@@ -106,12 +96,10 @@ async function getTweets(uid) {
             return new TwitterDataObj.TweetObj(item.id_str, item.text)
         })
 
-        console.log('Messages Found: ' + mappedTimeline.length)
-
         let prev_earliest_id = 0;
 
         // If we haven't gotten enough messages we will do another request. We also need to check to make sure this person has tweets otherwise this will infinitely loop.
-        while (mappedTimeline.length < MIN_TWEET_COUNT && mappedTimeline.length > 0) {
+        while (mappedTimeline.length < min_messages && mappedTimeline.length > 0) {
             const earliest_id = minBigInt(...mappedTimeline.map(item => BigInt(item.tweet_id_str))).toString()
             console.log('sending request for statuses/user_timeline')
             timeline = await T.get('statuses/user_timeline', {user_id: uid, trim_user: '1', count: MESSAGES_PER_REQUEST, include_rts: 'false', excludes_replies: 'true', max_id: earliest_id.toString()})
@@ -129,7 +117,7 @@ async function getTweets(uid) {
         console.log('Returning from getTweets. Found messages: ' + mappedTimeline.length)
         return new TwitterDataObj.FollowerObj(uid, mappedTimeline) 
     } catch (err) {
-        console.log(err)
+        console.error('Error for uid: ' + uid + '\n' + err.message)
         throw err
     }
 }

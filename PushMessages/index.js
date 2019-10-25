@@ -56,4 +56,4 @@ module.exports = async function (context, req) {
             body: "Please POST a json object in the request body"
         }
     }
-  }
+}
