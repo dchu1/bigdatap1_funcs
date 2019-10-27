@@ -1,4 +1,4 @@
-const http = require('http');
+const https = require('https');
 const querystring = require('querystring');
 
 module.exports = async function (context, req) {
@@ -9,17 +9,18 @@ module.exports = async function (context, req) {
             
             const uid = context.bindingData.uid;
             // reconstruct the query string
-            let qs = ''
-            if(Object.keys(req.query).length > 0)
-                qs += '?' + buildQuery(req.query)
+            //let queryCode = '?code=' + encodeURIComponent(process.env["FUNCTION_KEY"])
+            let qs = '?' + buildQuery(req.query)
+            let h = process.env["FUNCTION_HOST"]
+            let po = process.env["FUNCTION_PORT"]
             console.log('Fetch/push for user id: ' + uid + ' with querystring: ' + qs)
             const options = {
-                hostname: 'localhost',
-                port: 7071,
+                hostname: h,
+                port: po,
                 path: '/api/v1/twitter/leader/' + uid + qs,
                 method: 'GET'
               };
-            http.get(options, (resp) => {
+            https.get(options, (resp) => {
                 let data = '';
 
                 // A chunk of data has been recieved.
@@ -29,17 +30,18 @@ module.exports = async function (context, req) {
 
                 // The whole response has been received. Make the second call
                 resp.on('end', () => {
+                    let pa = '/api/v1/messages' + '?code=' + encodeURIComponent(process.env["FUNCTION_KEY"])
                     const options2 = {
-                        hostname: 'localhost',
-                        port: 7071,
-                        path: '/api/v1/messages',
+                        hostname: h,
+                        port: po,
+                        path: pa,
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Content-Length': Buffer.byteLength(data)
                         }
                     }
-                    let req = http.request(options2, (resp2) => {
+                    let req = https.request(options2, (resp2) => {
                         resp2.on('data', (d) => {
                             console.log(d)
                         })

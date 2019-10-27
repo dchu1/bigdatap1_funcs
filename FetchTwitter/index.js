@@ -2,7 +2,7 @@ const Twit = require('twit');
 const TwitterDataObj = require('../SharedFunctions/TwitterDataObj');
 const MIN_TWEET_COUNT = 1000;
 const MIN_FOLLOWER_COUNT = 200;
-const MAX_CONCURRENT_SEARCHES = 5;
+const MAX_CONCURRENT_SEARCHES = 20;
 const MESSAGES_PER_REQUEST = 200;
 
 const T = new Twit({

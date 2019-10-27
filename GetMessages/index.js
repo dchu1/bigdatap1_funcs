@@ -11,7 +11,7 @@ module.exports = async function (context, req) {
         const result = await poolConnection.request()
             .input('uid', sql.VarChar(63), uid)
             .query('SELECT tweetID, tweet FROM twitter_dump WHERE followerID = @uid FOR JSON PATH')
-        
+        console.log(result.recordset[0])
         context.res = {
             // status: 200, /* Defaults to 200 */
             body: result.recordset[0]

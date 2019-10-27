@@ -11,7 +11,7 @@ module.exports = async function (context, req) {
         const result = await poolConnection.request()
             .input('uid', sql.VarChar(63), uid)
             .query('SELECT followerID, COUNT(followerID) As messageCount FROM twitter_dump WHERE twitterID = @uid GROUP BY followerID FOR JSON PATH')
-        
+        console.log(result.recordset[0])
         context.res = {
                 // status: 200, /* Defaults to 200 */
                 body: result.recordset[0]
