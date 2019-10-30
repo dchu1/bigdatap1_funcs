@@ -21,14 +21,13 @@ module.exports = async function (context, req) {
         }          
 
         try {
-            // build the table so we can bulk insert. We have a clustered index on all the rows to ensure no duplicate entries,
-            // not for any sql efficiency reasons.
+            // build the table so we can bulk insert. Ideally we would do this in a way that detects duplicates
             const table = new sql.Table('twitter_dump')
             table.create = true
-            table.columns.add('twitterID', sql.VarChar(63), {nullable: false, primary: true})
-            table.columns.add('followerID', sql.VarChar(63), {nullable: false, primary: true})
-            table.columns.add('tweetID', sql.VarChar(63), {nullable: false, primary: true})
-            table.columns.add('tweet', sql.VarChar(319), {nullable: false, primary: true})
+            table.columns.add('twitterID', sql.VarChar(63), {nullable: false})
+            table.columns.add('followerID', sql.VarChar(63), {nullable: false})
+            table.columns.add('tweetID', sql.VarChar(63), {nullable: false})
+            table.columns.add('tweet', sql.VarChar(319), {nullable: false})
             dataObj.followers.forEach(follower => {
                 follower.tweets.forEach(tweet => {
                     table.rows.add(dataObj.leader_id_str, follower.follower_id_str, tweet.tweet_id_str, tweet.tweet_message)

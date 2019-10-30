@@ -6,6 +6,7 @@ const config = {
     database: process.env['MSSQL_DB'],
     parseJSON: true, // Not sure if this will break things...Useful for getting data back in json form so I don't need to format it
     pool: {max: 4}, // Free tier Azure MSSQL DB can only have 4 connections
+    connectionTimeout: 120000, // Increase connection timeout from 15s to 2 min because i'm using Azure SQL, which can take some time to spin up
     options: {
         encrypt: true // Use this if you're on Windows Azure
     }

@@ -6,8 +6,9 @@
     "test": "echo \"No tests yet...\""
   },
   "dependencies": {
-    "twit": "^2.2.11",
-    "mssql": "^5.1.0"
+    "twit": "~2.2.11",
+    "mssql": "~5.1.0",
+    "@azure/storage-queue": "next"
   },
   "devDependencies": {}
 }

@@ -1,4 +1,4 @@
-const https = require('https');
+const https = require('http');
 const querystring = require('querystring');
 
 module.exports = async function (context, req) {
@@ -6,11 +6,11 @@ module.exports = async function (context, req) {
 
     if (context.bindingData.uid) {
         try {
-            
             const uid = context.bindingData.uid;
             // reconstruct the query string
             //let queryCode = '?code=' + encodeURIComponent(process.env["FUNCTION_KEY"])
-            let qs = '?' + buildQuery(req.query)
+            //let qs = '?' + buildQuery(req.query)
+            let qs = '?' + querystring.stringify(req.query)
             let h = process.env["FUNCTION_HOST"]
             let po = process.env["FUNCTION_PORT"]
             console.log('Fetch/push for user id: ' + uid + ' with querystring: ' + qs)
@@ -19,7 +19,7 @@ module.exports = async function (context, req) {
                 port: po,
                 path: '/api/v1/twitter/leader/' + uid + qs,
                 method: 'GET'
-              };
+            };
             https.get(options, (resp) => {
                 let data = '';
 
@@ -76,24 +76,24 @@ module.exports = async function (context, req) {
     }
 };
 
-function buildQuery (data) {
+function buildQuery(data) {
 
     // If the data is already a string, return it as-is
     if (typeof (data) === 'string') return data;
-    
+
     // Create a query array to hold the key/value pairs
     let query = [];
-    
+
     // Loop through the data object
     for (var key in data) {
         if (data.hasOwnProperty(key)) {
-    
-        // Encode each key and value, concatenate them into a string, and push them to the array
-        query.push(encodeURIComponent(key) + '=' + encodeURIComponent(data[key]));
+
+            // Encode each key and value, concatenate them into a string, and push them to the array
+            query.push(encodeURIComponent(key) + '=' + encodeURIComponent(data[key]));
         }
     }
-    
+
     // Join each item in the array with a `&` and return the resulting string
     return query.join('&');
-    
-    }
+
+}
