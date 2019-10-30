@@ -33,3 +33,28 @@ HttpTrigger
 endpoint: /api/v1/messages
 
 Inserts data into the DB
+
+## Application Settings
+Below is a sample local.settings.json file for deploying locally
+
+```
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": ***,
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "TWITTER_CONSUMER_KEY": "***",
+    "TWITTER_CONSUMER_SECRET": "***",
+    "TWITTER_ACCESS_TOKEN": "***",
+    "TWITTER_ACCESS_TOKEN_SECRET": "***",
+    "MSSQL_USER": "***",
+    "MSSQL_PASSWORD": "***",
+    "MSSQL_HOST": "***",
+    "MSSQL_DB": "***",
+    "FUNCTION_KEY": "***",
+    "FUNCTION_HOST": "***",
+    "FUNCTION_PORT": "***"
+  }
+}
+
+```
