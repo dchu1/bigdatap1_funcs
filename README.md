@@ -21,7 +21,7 @@ endpoint: /api/v1/twitter/leader/{uid}
 
 Hits the Twitter API to get followers' messages
 
-If we hit a rate limit, we will put a task on the queue with a 15 minute delay (the rate limit window). We will then return whatever data we have gotten as a JSON object. Note that if we hit the daily limit it will simply keep requeuing the message every 15 minutes until we get the required number of followers and message. *Note that currently does not work properly due to Twitter's Pagination becoming stale, so the latter fetches fetch lots of duplicate dats.*
+If we hit a rate limit, we will put a task on the queue with a 15 minute delay (the rate limit window). We will then return whatever data we have gotten as a JSON object. Note that if we hit the daily limit it will simply keep requeuing the message every 15 minutes until we get the required number of followers and message. *Note that currently does not work properly due to Twitter's Pagination becoming stale, so the latter fetches fetch lots of duplicate data.*
 ## FetchTwitterQueueTrigger
 type: QueueTrigger
 
